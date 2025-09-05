@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Obstacle Navigator — Camera + TTS</title>
+  <style>
+    :root{font-family:system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;margin:0}
+    body{display:flex;flex-direction:column;align-items:center;gap:12px;padding:18px;background:#0f172a;color:#e6eef8}
+    .card{width:100%;max-width:720px;background:#0b1220;border-radius:12px;padding:12px;box-shadow:0 6px 18px rgba(0,0,0,0.6)}
+    h1{margin:6px 0;font-size:1.25rem}
+    video{width:100%;height:auto;border-radius:8px;background:#000;display:block}
+    .controls{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+    button, input[type=range]{appearance:none;padding:8px 12px;border-radius:8px;border:none;background:#14213d;color:#fff;font-weight:600}
+    label{font-size:0.9rem}
+    .status{margin-top:8px;font-size:0.95rem}
+    .overlay{position:relative}
+    .center-box{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);border:2px dashed rgba(255,255,255,0.2);padding:6px;border-radius:6px}
+    footer{margin-top:12px;font-size:0.8rem;color:#a8b3c7}
+    .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
+  </style>
+</head>
+<body>
+  <div class="card" role="region" aria-label="Obstacle navigator application">
+    <h1>Obstacle Navigator</h1>
+    <p>Opens the camera, analyses frames, and uses voice to warn when an obstacle is detected in the camera view. For best results: use HTTPS and test on a mobile device with rear camera.</p>
+
+    <div class="overlay">
+      <video id="video" autoplay playsinline muted aria-label="Camera stream"></video>
+      <div class="center-box" aria-hidden="true">Center area (obstacle check)</div>
+    </div>
+
+    <div class="controls" role="group" aria-label="controls">
+      <button id="startBtn">Start camera</button>
+      <button id="stopBtn" disabled>Stop</button>
+      <button id="calibrateBtn">Calibrate / Reset</button>
+
+      <div style="display:flex;align-items:center;gap:8px">
+        <label for="sensitivity">Sensitivity</label>
+        <input id="sensitivity" type="range" min="5" max="100" value="30">
+      </div>
+
+      <div style="display:flex;align-items:center;gap:8px">
+        <label for="interval">Interval (ms)</label>
+        <input id="interval" type="range" min="100" max="1000" step="50" value="300">
+      </div>
+
+      <button id="ttsToggle">Voice: On</button>
+    </div>
+
+    <div class="status" id="status" aria-live="polite">Status: idle</div>
+
+    <div class="sr-only" id="log"></div>
+    <footer>Note: this is a proof-of-concept. It performs basic edge-based obstacle detection — not a replacement for mobility aids.</footer>
+  </div>
+      <a href="/" 
+   style="
+       display: inline-block;
+       padding: 10px 20px;
+       color: white;
+       text-decoration: none;
+       border-radius: 5px;
+       font-weight: bold;
+       font-family: Arial, sans-serif;
+       transition: background-color 0.3s;
+   "
+>
+   <button> 🏠 Home</button>
+</a>
+  <script>
+  // Basic obstacle detection using edge magnitude in the center region.
+  // Runs fully in the browser (no server). Works better if the camera is stable.
+
+  const video = document.getElementById('video');
+  const startBtn = document.getElementById('startBtn');
+  const stopBtn = document.getElementById('stopBtn');
+  const calibrateBtn = document.getElementById('calibrateBtn');
+  const sensitivityEl = document.getElementById('sensitivity');
+  const intervalEl = document.getElementById('interval');
+  const ttsToggle = document.getElementById('ttsToggle');
+  const status = document.getElementById('status');
+  const log = document.getElementById('log');
+
+  let stream = null;
+  let running = false;
+  let analyzeTimer = null;
+  let canvas = null, ctx = null;
+  let hiddenCanvas = null, hiddenCtx = null;
+  let lastSpoken = 0;
+  let voiceEnabled = true;
+
+  function speak(text){
+    if(!voiceEnabled) return;
+    const now = Date.now();
+    // avoid spamming speech
+    if(now - lastSpoken < 1200) return;
+    lastSpoken = now;
+    try{
+      const ut = new SpeechSynthesisUtterance(text);
+      ut.lang = 'en-US';
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(ut);
+    }catch(e){
+      console.warn('TTS failed', e);
+    }
+  }
+
+  startBtn.addEventListener('click', async ()=>{
+    if(running) return;
+    status.textContent = 'Status: requesting camera...';
+    try{
+      stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}, audio:false});
+      video.srcObject = stream;
+      await video.play();
+
+      // create canvases sized to video
+      canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth || 640;
+      canvas.height = video.videoHeight || 480;
+      ctx = canvas.getContext('2d');
+
+      hiddenCanvas = document.createElement('canvas');
+      hiddenCanvas.width = canvas.width;
+      hiddenCanvas.height = canvas.height;
+      hiddenCtx = hiddenCanvas.getContext('2d');
+
+      running = true;
+      startAnalyzer();
+      startBtn.disabled = true;
+      stopBtn.disabled = false;
+      status.textContent = 'Status: running';
+      speak('Camera started. Obstacle detection active.');
+    }catch(e){
+      console.error(e);
+      status.textContent = 'Status: camera permission denied or not available.';
+      speak('Unable to access camera. Please allow camera permission and use https.');
+    }
+  });
+
+  stopBtn.addEventListener('click', ()=>{
+    stop();
+  });
+
+  calibrateBtn.addEventListener('click', ()=>{
+    // Reset lastSpoken and give feedback
+    lastSpoken = 0;
+    speak('Calibration complete.');
+  });
+
+  ttsToggle.addEventListener('click', ()=>{
+    voiceEnabled = !voiceEnabled;
+    ttsToggle.textContent = voiceEnabled ? 'Voice: On' : 'Voice: Off';
+    status.textContent = 'Status: voice ' + (voiceEnabled ? 'enabled' : 'disabled');
+  });
+
+  function stop(){
+    if(!running) return;
+    running = false;
+    if(analyzeTimer) clearInterval(analyzeTimer);
+    if(stream){
+      stream.getTracks().forEach(t=>t.stop());
+      stream = null;
+    }
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
+    status.textContent = 'Status: stopped';
+    speak('Camera stopped.');
+  }
+
+  function startAnalyzer(){
+    const interval = parseInt(intervalEl.value,10) || 300;
+    if(analyzeTimer) clearInterval(analyzeTimer);
+    analyzeTimer = setInterval(()=>analyzeFrame(), interval);
+  }
+
+  intervalEl.addEventListener('input', ()=>{
+    if(running) startAnalyzer();
+  });
+
+  // Simple Sobel kernels
+  const Kx = [ -1, 0, 1, -2, 0, 2, -1, 0, 1 ];
+  const Ky = [ -1, -2, -1, 0, 0, 0, 1, 2, 1 ];
+
+  function analyzeFrame(){
+    if(!running || video.paused || video.ended) return;
+    // draw video frame to canvas
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const frame = ctx.getImageData(0,0,canvas.width,canvas.height);
+    const w = frame.width, h = frame.height;
+    const gray = new Uint8ClampedArray(w*h);
+
+    // grayscale
+    for(let i=0, j=0;i<frame.data.length;i+=4,j++){
+      const r = frame.data[i], g = frame.data[i+1], b = frame.data[i+2];
+      gray[j] = (0.2989*r + 0.5870*g + 0.1140*b)|0;
+    }
+
+    // sobel
+    const sob = new Uint8ClampedArray(w*h);
+    for(let y=1;y<h-1;y++){
+      for(let x=1;x<w-1;x++){
+        let gx=0, gy=0;
+        let idx = 0;
+        for(let ky=-1;ky<=1;ky++){
+          for(let kx=-1;kx<=1;kx++){
+            const px = x + kx;
+            const py = y + ky;
+            const pval = gray[py*w + px];
+            gx += pval * Kx[idx];
+            gy += pval * Ky[idx];
+            idx++;
+          }
+        }
+        const mag = Math.hypot(gx,gy);
+        sob[y*w + x] = mag>255?255:mag;
+      }
+    }
+
+    // threshold and count in center box
+    const cx1 = Math.floor(w*0.33), cx2 = Math.floor(w*0.67);
+    const cy1 = Math.floor(h*0.33), cy2 = Math.floor(h*0.67);
+    let count = 0, total = 0;
+    const thresh = parseInt(sensitivityEl.value,10) || 30;
+    for(let y=cy1;y<cy2;y++){
+      for(let x=cx1;x<cx2;x++){
+        total++;
+        if(sob[y*w + x] > thresh) count++;
+      }
+    }
+
+    const fraction = (count/total)*100;
+    log.textContent = `edge%: ${fraction.toFixed(1)} count:${count} total:${total} thresh:${thresh}`;
+
+    // Determine obstacle: if large fraction of edges in center -> likely obstacle
+    if(fraction > 6){
+      // stronger alert if fraction much larger
+      const now = Date.now();
+      speak('Obstacle ahead');
+      status.textContent = `Status: obstacle detected (${fraction.toFixed(1)}% center edges)`;
+      // haptic (if available)
+      if(navigator.vibrate) navigator.vibrate(200);
+    }else{
+      status.textContent = `Status: clear (${fraction.toFixed(1)}% center edges)`;
+    }
+  }
+
+  // stop camera on page unload
+  window.addEventListener('beforeunload', ()=>{
+    if(stream) stream.getTracks().forEach(t=>t.stop());
+  });
+
+  // Accessibility: keyboard shortcuts
+  window.addEventListener('keydown',(e)=>{
+    if(e.key === 's') startBtn.click();
+    if(e.key === 'x') stopBtn.click();
+    if(e.key === 'v') ttsToggle.click();
+  });
+
+  // Explain limitations to user (spoken once on load)
+  window.addEventListener('load', ()=>{
+    setTimeout(()=>{
+      speak('Welcome. Press start to open the camera. This is a demonstration and not a certified mobility aid.');
+    },600);
+  });
+  </script>
+</body>
+</html>

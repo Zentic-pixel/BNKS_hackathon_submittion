@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manual Search</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, violet 0%, blue 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            width: 100%;
+            max-width: 440px;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .logo {
+            color: blue;
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .tagline {
+            color: gray;
+            font-size: 18px;
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .dropdown {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid lightgray;
+            border-radius: 8px;
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
+
+        .continue-btn {
+            width: 100%;
+            background-color: #4285F4;
+            color: white;
+            border: none;
+            padding: 16px;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .continue-btn:hover {
+            background-color: #3367D6;
+        }
+
+        .tts-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 25px;
+            padding: 12px;
+            background-color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .tts-icon {
+            width: 24px;
+            height: 24px;
+        }
+
+        .tts-text {
+            color: gray;
+            font-weight: 500;
+        }
+
+        .tts-status {
+            margin-left: auto;
+            padding: 4px 8px;
+            background-color: #34a853;
+            color: white;
+            border-radius: 12px;
+            font-size: 12px;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 30px 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="logo">ConnectingAbilities</h1>
+        <p class="tagline">Manual Search</p>
+        
+        <form>
+             <div class="form-group" id="disability-buttons">
+        <label class="font-medium" style="margin-bottom:10px;display:block;" align="center" size="14">Select The Help You Need:</label>
+        <button type="button" class="dropdown continue-btn" onclick="window.location.href='visual'">Visual impairments</button>
+
+<button type="button" class="dropdown continue-btn" onclick="window.location.href='hearing'">Hearing impairments</button>
+
+        </form>
+
+    </div>
+</body>
+</html>

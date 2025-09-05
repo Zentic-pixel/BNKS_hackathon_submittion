@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CaptionMate - Real-Time Captioning App</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #6e8efb, #a777e3);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            color: #333;
+        }
+        
+        .container {
+            width: 100%;
+            max-width: 800px;
+            background-color:white;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+            margin-top: 20px;
+        }
+        
+        header {
+            background: purple;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        h1 {
+            font-size: 2;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            font-size: 1;
+            opacity: 0.8;
+        }
+        
+        .main-content {
+            padding: 25px;
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        
+        button {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 50px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .start-btn {
+            background-color: lightgreen;
+            color: white;
+        }
+        
+        .start-btn:hover {
+            background-color: green;
+            transform: translateY(-2px);
+        }
+        
+        .stop-btn {
+            background-color: orange;
+            color: white;
+        }
+        
+        .stop-btn:hover {
+            background-color: red;
+            transform: translateY(-2px);
+        }
+        
+        .save-btn {
+            background-color: skyblue;
+            color: white;
+        }
+        
+        .save-btn:hover {
+            background-color: blue;
+            transform: translateY(-2px);
+        }
+        
+        .caption-area {
+            background-color: white;
+            border-radius: 15px;
+            padding: 20px;
+            min-height: 200px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-bottom: 25px;
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .caption-text {
+            font-size: 2;
+            line-height: 1.6;
+            color: black;
+        }
+        
+        .caption-text .current {
+            background-color: peachpuff;
+            padding: 2px 4px;
+            border-radius: 4px;
+        }
+        
+        .status {
+            text-align: center;
+            margin-bottom: 15px;
+            font-weight: 500;
+            color: gray;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .status.recording {
+            color: red;
+        }
+        
+        .saved-transcripts {
+            background-color: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        
+        .saved-transcripts h2 {
+            font-size: 1.5;
+            margin-bottom: 15px;
+            color: gray;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .transcript-list {
+            list-style-type: none;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .transcript-item {
+            padding: 12px 15px;
+            background-color: white;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        }
+        
+        .transcript-date {
+            font-size: 1;
+            color: gray;
+        }
+        
+        .transcript-content {
+            flex: 1;
+            margin-right: 15px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .transcript-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .transcript-actions button {
+            padding: 5px 10px;
+            font-size: 1;
+        }
+        
+        .pulse {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: red;
+            box-shadow: 0 0 0 rgba(134, 132, 132, 0.4);
+
+        }
+        
+        
+        .permission-note {
+            text-align: center;
+            margin-top: 15px;
+            font-size: 1;
+            color: gray;
+            padding: 10px;
+            background-color: white;
+            border-radius: 10px;
+        }
+        
+        footer {
+            margin-top: 30px;
+            text-align: center;
+            color: white;
+            font-size: 1;
+            opacity: 0.8;
+        }
+        
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>CaptionMate</h1>
+            <p class="subtitle">Real-time captions for conversations, meetings, and classes</p>
+        </header>
+        
+        <div class="main-content">
+            <div class="status" id="status">
+                Click "Start Captioning" to begin
+            </div>
+            
+            <div class="controls">
+                <button class="start-btn" id="startBtn">
+
+                    Start Captioning
+                </button>
+                <button class="stop-btn" id="stopBtn" disabled>
+
+
+                    Stop Captioning
+                </button>
+                <button class="save-btn" id="saveBtn" disabled>
+
+                    Save Transcript
+                </button>
+            </div>
+            
+            <div class="caption-area">
+                <div class="caption-text" id="captionText">
+                    Captions will appear here as you speak...
+                </div>
+            </div>
+            
+            <div class="permission-note">
+                Note: When prompted, please allow microphone access for real time captioning.
+            </div>
+            
+            <div class="saved-transcripts">
+                <h2>
+                    </svg>
+                    Saved Transcripts
+                </h2>
+                <ul class="transcript-list" id="transcriptList">
+                    <li class="transcript-item">
+                        <div class="transcript-content">No saved transcripts yet</div>
+                        <div class="transcript-actions">
+                            <button class="view-btn" style="display: none;">View</button>
+                            <button class="delete-btn" style="display: none;">Delete</button>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <a href="/" 
+   style="
+       display: inline-block;
+       padding: 10px 20px;
+       color: white;
+       text-decoration: none;
+       border-radius: 5px;
+       font-weight: bold;
+       font-family: Arial, sans-serif;
+       transition: background-color 0.3s;
+   "
+>
+   <button> 🏠 Home</button>
+</a>
+    <footer>
+        <p>CaptionLive &copy; 2025 | Hackathon Project</p>
+    </footer>
+    <script>
+    document.addEventListener('DOMContentLoaded', setupApp);
+    
+    function setupApp() {
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const saveBtn = document.getElementById('saveBtn');
+        const status = document.getElementById('status');
+        const captionText = document.getElementById('captionText');
+        const transcriptList = document.getElementById('transcriptList');
+        
+        let recognition = null;
+        let isRecording = false;
+        let fullTranscript = '';
+        
+        let transcripts = [];
+        try {
+            const saved = localStorage.getItem('transcripts');
+            if (saved) {
+                transcripts = JSON.parse(saved);
+            }
+        } catch (e) {
+            console.log("Couldn't load saved transcripts", e);
+        }
+        
+        if (!('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
+            status.textContent = "Sorry, your browser doesn't support speech recognition";
+            startBtn.disabled = true;
+            return;
+        }
+        
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = 'en-US';
+        
+        recognition.onresult = function(event) {
+            let interim = '';
+            
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+                if (event.results[i].isFinal) {
+                    const text = event.results[i][0].transcript;
+                    fullTranscript += text + ' ';
+                    captionText.innerHTML += `<span>${text}</span> `;
+                } else {
+                    interim += event.results[i][0].transcript;
+                }
+            }
+            
+            captionText.innerHTML = fullTranscript + '<span class="current">' + interim + '</span>';
+            
+            captionText.parentElement.scrollTop = captionText.parentElement.scrollHeight;
+        };
+        
+        recognition.onerror = function(event) {
+            console.log('Recognition error:', event.error);
+            status.textContent = 'Error: ' + event.error;
+            stopRecording();
+        };
+        
+        recognition.onend = function() {
+            if (isRecording) {
+                try {
+                    recognition.start();
+                } catch (e) {
+                    stopRecording();
+                    status.textContent = 'Recording stopped unexpectedly';
+                }
+            }
+        };
+        
+        function startRecording() {
+            try {
+                recognition.start();
+                isRecording = true;
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                saveBtn.disabled = true;
+                status.innerHTML = '<span class="pulse"></span> Listening...';
+                status.classList.add('recording');
+                captionText.innerHTML = '';
+                fullTranscript = '';
+            } catch (e) {
+                status.textContent = 'Failed to start: ' + e.message;
+            }
+        }
+        
+        function stopRecording() {
+            if (isRecording) {
+                recognition.stop();
+                isRecording = false;
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+                saveBtn.disabled = false;
+                status.textContent = 'Stopped. Ready to save.';
+                status.classList.remove('recording');
+            }
+        }
+        
+        function saveTranscript() {
+            if (fullTranscript.trim() === '') {
+                alert("Nothing to save - please record something first!");
+                return;
+            }
+            
+            const newTranscript = {
+                text: fullTranscript.trim(),
+                date: new Date().toISOString()
+            };
+            
+            transcripts.unshift(newTranscript);
+            
+            if (transcripts.length > 5) {
+                transcripts = transcripts.slice(0, 5);
+            }
+            
+            localStorage.setItem('transcripts', JSON.stringify(transcripts));
+            
+            updateTranscriptsList();
+            
+            alert('Transcript saved!');
+        }
+        
+        function updateTranscriptsList() {
+            if (transcripts.length === 0) {
+                transcriptList.innerHTML = '<li class="transcript-item">No saved transcripts yet</li>';
+                return;
+            }
+            
+            transcriptList.innerHTML = '';
+            
+            transcripts.forEach((item, index) => {
+                const li = document.createElement('li');
+                li.className = 'transcript-item';
+                
+                const date = new Date(item.date);
+                const formattedDate = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+                
+                li.innerHTML = `
+                    <div>${shortText}</div>
+                    <div class="transcript-date">${formattedDate}</div>
+                `;
+                
+                li.addEventListener('click', () => {
+                    alert(item.text);
+                });
+                
+                transcriptList.appendChild(li);
+            });
+        }
+        
+        startBtn.addEventListener('click', startRecording);
+        stopBtn.addEventListener('click', stopRecording);
+        saveBtn.addEventListener('click', saveTranscript);
+        
+        updateTranscriptsList();
+    }
+    </script>
+</body>
+</html>
